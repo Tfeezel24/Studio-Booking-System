@@ -283,6 +283,7 @@ export const useStore = create<AppState>()(
             carouselVideosService.getActive(),
           ]);
 
+          console.log('[DEBUG] Services loaded from Firestore:', svcs.map(s => ({ name: s.name, hasPricingTiers: !!s.pricingTiers, pricingTiers: s.pricingTiers, keys: Object.keys(s) })));
           set({
             services: svcs,
             addOns: addons,
