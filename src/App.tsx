@@ -1120,11 +1120,9 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
 
   // Handle package selection — reset sqft tier
   const handlePackageSelect = (service: Service) => {
-    console.log('[DEBUG] handlePackageSelect called with:', service.name, 'pricingTiers:', service.pricingTiers);
     setSelectedSqftTier(null);
     setSqftDropdownOpen(true);
     setService(service);
-    console.log('[DEBUG] After setService, selectedService:', selectedService?.name, 'pricingTiers:', selectedService?.pricingTiers);
   };
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'venmo' | 'zelle'>('stripe');
   const [paymentOption, setPaymentOption] = useState<'full' | 'deposit'>('deposit');
