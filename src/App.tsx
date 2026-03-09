@@ -1050,6 +1050,66 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
     return () => window.removeEventListener('popstate', handleBookingPopState);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [expandedBookingDesc, setExpandedBookingDesc] = useState<string | null>(null);
+  const [selectedSqftTier, setSelectedSqftTier] = useState<string | null>(
+    (selectedService as any)?._selectedSqftTier || null
+  );
+  const [sqftDropdownOpen, setSqftDropdownOpen] = useState(false);
+
+  const sqftLabels: Record<string, string> = {
+    '0-2000': '0–2,000 sqft',
+    '2001-3000': '2,001–3,000 sqft',
+    '3001-4000': '3,001–4,000 sqft',
+    '4001-5000': '4,001–5,000 sqft',
+    '5001+': '5,001+ sqft',
+  };
+  const sqftKeys = ['0-2000', '2001-3000', '3001-4000', '4001-5000', '5001+'];
+
+  // Add-on pricing tiers by name (lowercase match) and sqft tier
+  const addOnPricingByTier: Record<string, Record<string, number>> = {
+    'hdr photos': { '0-2000': 250, '2001-3000': 325, '3001-4000': 375, '4001-5000': 425, '5001+': 500 },
+    'matterport': { '0-2000': 225, '2001-3000': 225, '3001-4000': 375, '4001-5000': 425, '5001+': 500 },
+    'cinematic video': { '0-2000': 500, '2001-3000': 500, '3001-4000': 700, '4001-5000': 800, '5001+': 900 },
+    'twilight photos': { '0-2000': 225, '2001-3000': 225, '3001-4000': 225, '4001-5000': 225, '5001+': 225 },
+    'drone photos': { '0-2000': 225, '2001-3000': 225, '3001-4000': 225, '4001-5000': 225, '5001+': 225 },
+    'ig walkthrough reel': { '0-2000': 250, '2001-3000': 250, '3001-4000': 275, '4001-5000': 275, '5001+': 275 },
+    'floor plan': { '0-2000': 100, '2001-3000': 100, '3001-4000': 100, '4001-5000': 100, '5001+': 100 },
+    'agent intro/outro': { '0-2000': 100, '2001-3000': 100, '3001-4000': 100, '4001-5000': 100, '5001+': 100 },
+    'area highlight video': { '0-2000': 150, '2001-3000': 150, '3001-4000': 150, '4001-5000': 150, '5001+': 150 },
+    'virtual staging': { '0-2000': 25, '2001-3000': 25, '3001-4000': 25, '4001-5000': 25, '5001+': 25 },
+  };
+
+  // Get the add-on price adjusted for the selected sqft tier
+  const getAddonPrice = (addon: AddOn) => {
+    if (!selectedSqftTier) return addon.price;
+    const key = addon.name.toLowerCase();
+    const tierPricing = addOnPricingByTier[key];
+    if (tierPricing && tierPricing[selectedSqftTier] !== undefined) {
+      return tierPricing[selectedSqftTier];
+    }
+    return addon.price;
+  };
+
+  // Handle sqft tier selection — update the service price
+  const handleSqftSelect = (tierKey: string) => {
+    setSelectedSqftTier(tierKey);
+    setSqftDropdownOpen(false);
+    if (selectedService && selectedService.pricingTiers?.[tierKey]) {
+      const updatedService = {
+        ...selectedService,
+        basePrice: selectedService.pricingTiers[tierKey],
+        _selectedSqftTier: tierKey,
+        _selectedSqftLabel: sqftLabels[tierKey],
+      };
+      setService(updatedService as Service);
+    }
+  };
+
+  // Handle package selection — reset sqft tier
+  const handlePackageSelect = (service: Service) => {
+    setSelectedSqftTier(null);
+    setSqftDropdownOpen(true);
+    setService(service);
+  };
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'venmo' | 'zelle'>('stripe');
   const [paymentOption, setPaymentOption] = useState<'full' | 'deposit'>('deposit');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1152,7 +1212,7 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
   // Calculate raw subtotal (before any discount)
   const calculateTotal = () => {
     if (!selectedService) return 0;
-    const addonsTotal = selectedAddOns.reduce((sum: number, a: AddOn) => sum + a.price, 0);
+    const addonsTotal = selectedAddOns.reduce((sum: number, a: AddOn) => sum + getAddonPrice(a), 0);
     return selectedService.basePrice + addonsTotal;
   };
 
@@ -1199,8 +1259,10 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
         addons: selectedAddOns.map((a: AddOn) => ({
           addonId: a.id,
           name: a.name,
-          price: a.price
+          price: getAddonPrice(a)
         })),
+        sqftTier: selectedSqftTier || null,
+        sqftLabel: selectedSqftTier ? sqftLabels[selectedSqftTier] : null,
         dateTime: {
           start: selectedTimeSlot.start,
           end: selectedTimeSlot.end,
@@ -1321,15 +1383,64 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
             </div>
             <h2 className="text-xl font-semibold">Select a Package</h2>
 
-            {/* Show pre-selected sqft tier info if coming from packages page */}
-            {selectedService && (selectedService as any)._selectedSqftLabel && (
-              <div className="p-3 rounded-lg bg-[#cbb26a]/10 border border-[#cbb26a]/30 flex items-center gap-2">
-                <Check className="w-4 h-4 text-[#cbb26a]" />
-                <span className="text-sm">
-                  Property size: <span className="font-semibold text-[#cbb26a]">{(selectedService as any)._selectedSqftLabel}</span>
-                  {' — '}
-                  <span className="font-semibold text-[#8f5e25]">{formatPrice(selectedService.basePrice)}</span>
-                </span>
+            {/* Square footage tier selection — appears after selecting a package */}
+            {selectedService && selectedService.pricingTiers && (
+              <div className="bg-card p-5 rounded-lg border">
+                <h3 className="font-semibold mb-1">How big is the property?</h3>
+                <p className="text-sm text-muted-foreground mb-3">Select the property size to see accurate pricing.</p>
+                <div className="relative">
+                  <button
+                    onClick={() => setSqftDropdownOpen(!sqftDropdownOpen)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border-2 transition-all ${
+                      selectedSqftTier
+                        ? 'border-[#cbb26a] bg-[#cbb26a]/10'
+                        : 'border-border hover:border-[#dbc88a]'
+                    }`}
+                  >
+                    <span className={selectedSqftTier ? 'font-medium text-[#cbb26a]' : 'text-muted-foreground'}>
+                      {selectedSqftTier ? sqftLabels[selectedSqftTier] : 'Select property size...'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {selectedSqftTier && selectedService.pricingTiers[selectedSqftTier] && (
+                        <span className="font-bold text-[#8f5e25]">{formatPrice(selectedService.pricingTiers[selectedSqftTier])}</span>
+                      )}
+                      <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${sqftDropdownOpen ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+                  {sqftDropdownOpen && (
+                    <div className="mt-2 rounded-lg border border-[#cbb26a]/20 overflow-hidden bg-card shadow-lg">
+                      {sqftKeys.map((key) => {
+                        const isSelected = selectedSqftTier === key;
+                        const tierPrice = selectedService.pricingTiers?.[key];
+                        return (
+                          <button
+                            key={key}
+                            onClick={(e) => { e.stopPropagation(); handleSqftSelect(key); }}
+                            className={`w-full flex items-center justify-between px-4 py-3 text-sm transition-all ${
+                              isSelected
+                                ? 'bg-[#cbb26a]/20 border-l-3 border-l-[#cbb26a]'
+                                : 'hover:bg-[#cbb26a]/10 border-l-3 border-l-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                isSelected ? 'border-[#cbb26a]' : 'border-muted-foreground/30'
+                              }`}>
+                                {isSelected && <div className="w-2 h-2 rounded-full bg-[#cbb26a]" />}
+                              </div>
+                              <span className={isSelected ? 'text-[#cbb26a] font-medium' : 'text-muted-foreground'}>
+                                {sqftLabels[key]}
+                              </span>
+                            </div>
+                            <span className={`font-semibold ${isSelected ? 'text-[#cbb26a]' : 'text-[#8f5e25]'}`}>
+                              {tierPrice ? formatPrice(tierPrice) : '—'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1337,7 +1448,7 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
               {services.map((service: Service) => (
                 <div
                   key={service.id}
-                  onClick={() => setService(service)}
+                  onClick={() => handlePackageSelect(service)}
                   className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${selectedService?.id === service.id
                     ? 'border-[#cbb26a] bg-[#cbb26a]/20 ring-1 ring-[#cbb26a]'
                     : 'border-border hover:border-[#dbc88a]'
@@ -1382,37 +1493,42 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
               ))}
             </div>
 
-            {selectedService && (
+            {selectedService && selectedSqftTier && (
               <div className="bg-card p-6 rounded-lg border">
-                <h3 className="font-semibold mb-4">Add-Ons (Optional)</h3>
+                <h3 className="font-semibold mb-1">Add-Ons (Optional)</h3>
+                <p className="text-sm text-muted-foreground mb-4">Prices shown for {sqftLabels[selectedSqftTier]}.</p>
                 <div className="space-y-3">
-                  {getServiceAddOns(selectedService.id).map((addon: AddOn) => (
-                    <label
-                      key={addon.id}
-                      className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-[#cbb26a]/10 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedAddOns.some((a: AddOn) => a.id === addon.id)}
-                          onChange={() => toggleAddOn(addon)}
-                          className="w-5 h-5 rounded border-gray-300 text-[#8f5e25] focus:ring-[#cbb26a]"
-                        />
-                        <div>
-                          <p className="font-medium">{addon.name}</p>
-                          <p className="text-sm text-muted-foreground">{addon.description}</p>
+                  {getServiceAddOns(selectedService.id).map((addon: AddOn) => {
+                    const tierPrice = getAddonPrice(addon);
+                    const addonWithTierPrice = { ...addon, price: tierPrice };
+                    return (
+                      <label
+                        key={addon.id}
+                        className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-[#cbb26a]/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedAddOns.some((a: AddOn) => a.id === addon.id)}
+                            onChange={() => toggleAddOn(addonWithTierPrice)}
+                            className="w-5 h-5 rounded border-gray-300 text-[#8f5e25] focus:ring-[#cbb26a]"
+                          />
+                          <div>
+                            <p className="font-medium">{addon.name}</p>
+                            <p className="text-sm text-muted-foreground">{addon.description}</p>
+                          </div>
                         </div>
-                      </div>
-                      <span className="font-semibold text-[#8f5e25]">{formatPrice(addon.price)}</span>
-                    </label>
-                  ))}
+                        <span className="font-semibold text-[#8f5e25]">{formatPrice(tierPrice)}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             <div className="flex justify-end">
               <Button
-                disabled={!selectedService}
+                disabled={!selectedService || (selectedService.pricingTiers && !selectedSqftTier)}
                 onClick={() => setStep(2)}
                 className="btn-gold text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -1420,6 +1536,9 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
+            {selectedService && selectedService.pricingTiers && !selectedSqftTier && (
+              <p className="text-sm text-amber-500 text-right -mt-4">Please select a property size to continue.</p>
+            )}
           </div>
         )}
 
@@ -1645,13 +1764,18 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
               <h3 className="font-semibold mb-4">Order Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>{selectedService.name}</span>
+                  <div>
+                    <span>{selectedService.name}</span>
+                    {selectedSqftTier && (
+                      <span className="text-xs text-muted-foreground ml-2">({sqftLabels[selectedSqftTier]})</span>
+                    )}
+                  </div>
                   <span>{formatPrice(selectedService.basePrice)}</span>
                 </div>
                 {selectedAddOns.map((addon: AddOn) => (
                   <div key={addon.id} className="flex justify-between">
                     <span>{addon.name}</span>
-                    <span>{formatPrice(addon.price)}</span>
+                    <span>{formatPrice(getAddonPrice(addon))}</span>
                   </div>
                 ))}
                 <Separator className="my-2" />
