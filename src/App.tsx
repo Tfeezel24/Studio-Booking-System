@@ -52,6 +52,7 @@ import { HeroVideo } from '@/components/HeroVideo';
 import { PaymentForm } from '@/components/PaymentForm';
 import { ClientPortal } from '@/components/ClientPortal';
 import { SettingsPage } from '@/components/SettingsPage';
+import { TermsOfServicePage, PrivacyPolicyPage, CancellationPolicyPage } from '@/components/LegalPages';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { StatsCounter } from '@/components/StatsCounter';
 import { TextReveal } from '@/components/TextReveal';
@@ -69,7 +70,7 @@ import type {
 } from '@/types';
 
 // View types for navigation
-type View = 'home' | 'portfolio' | 'services' | 'booking' | 'about' | 'contact' | 'portal' | 'admin' | 'login' | 'settings';
+type View = 'home' | 'portfolio' | 'services' | 'booking' | 'about' | 'contact' | 'portal' | 'admin' | 'login' | 'settings' | 'terms' | 'privacy' | 'cancellation';
 
 // Toast Component
 function Toast() {
@@ -2661,7 +2662,7 @@ function Footer({ setView }: { setView: (v: View) => void }) {
               <li><button onClick={() => setView('contact')} className="hover:text-white">Contact</button></li>
               <li><button onClick={() => setView('portal')} className="hover:text-white">Client Portal</button></li>
               <li><button onClick={() => setView('admin')} className="hover:text-white">Admin Dashboard</button></li>
-              <li><button className="hover:text-white">Privacy Policy</button></li>
+              <li><button onClick={() => setView('privacy')} className="hover:text-white">Privacy Policy</button></li>
             </ul>
           </div>
 
@@ -2683,9 +2684,9 @@ function Footer({ setView }: { setView: (v: View) => void }) {
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-gray-400">
           <p>&copy; 2026 Real Luxe Studios. All rights reserved.</p>
           <div className="flex gap-4">
-            <button className="hover:text-white">Terms of Service</button>
-            <button className="hover:text-white">Privacy Policy</button>
-            <button className="hover:text-white">Cancellation Policy</button>
+            <button onClick={() => setView('terms')} className="hover:text-white">Terms of Service</button>
+            <button onClick={() => setView('privacy')} className="hover:text-white">Privacy Policy</button>
+            <button onClick={() => setView('cancellation')} className="hover:text-white">Cancellation Policy</button>
           </div>
         </div>
       </div>
@@ -2694,7 +2695,7 @@ function Footer({ setView }: { setView: (v: View) => void }) {
 }
 
 // Helper: map URL pathname to a View
-const validViews: View[] = ['home','portfolio','services','booking','about','contact','portal','admin','login','settings'];
+const validViews: View[] = ['home','portfolio','services','booking','about','contact','portal','admin','login','settings','terms','privacy','cancellation'];
 function pathToView(pathname: string): View {
   const segment = pathname.replace(/^\//, '').split('/')[0].toLowerCase();
   if (segment === 'packages') return 'services';
@@ -2799,6 +2800,9 @@ function App() {
         {currentView === 'portal' && <ClientPortal setView={setView} />}
         {currentView === 'admin' && <AdminDashboard setView={setView} />}
         {currentView === 'settings' && <SettingsPage />}
+        {currentView === 'terms' && <TermsOfServicePage setView={setView} />}
+        {currentView === 'privacy' && <PrivacyPolicyPage setView={setView} />}
+        {currentView === 'cancellation' && <CancellationPolicyPage setView={setView} />}
       </main>
 
       {currentView !== 'portal' && currentView !== 'admin' && currentView !== 'login' && (
