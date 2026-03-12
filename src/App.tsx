@@ -2660,7 +2660,6 @@ function Footer({ setView }: { setView: (v: View) => void }) {
             <ul className="space-y-2 text-sm text-gray-400">
               <li><button onClick={() => setView('contact')} className="hover:text-white">Contact</button></li>
               <li><button onClick={() => setView('portal')} className="hover:text-white">Client Portal</button></li>
-              <li><button onClick={() => setView('admin')} className="hover:text-white">Admin Dashboard</button></li>
               <li><button onClick={() => setView('privacy')} className="hover:text-white">Privacy Policy</button></li>
             </ul>
           </div>
@@ -2707,6 +2706,40 @@ function viewToPath(view: View): string {
 }
 
 // Main App Component
+// ─── Protected Route Guard ────────────────────────────────────────────────
+function RequireAdmin({ children, setView }: { children: React.ReactNode; setView: (v: View) => void }) {
+  const { isAuthenticated, authLoading, user } = useAuth();
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+  if (!isAuthenticated || user?.role !== 'admin') {
+    // Redirect to login if not authenticated or not admin
+    setTimeout(() => setView('login'), 0);
+    return null;
+  }
+  return <>{children}</>;
+}
+
+function RequireAuth({ children, setView }: { children: React.ReactNode; setView: (v: View) => void }) {
+  const { isAuthenticated, authLoading } = useAuth();
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+  if (!isAuthenticated) {
+    setTimeout(() => setView('login'), 0);
+    return null;
+  }
+  return <>{children}</>;
+}
+
 function App() {
   const [currentView, setCurrentView] = useState<View>(() => pathToView(window.location.pathname));
   const { setUser, loadPublicData, loadAdminData, dataLoaded, authLoading } = useStore();
@@ -2797,8 +2830,8 @@ function App() {
         {currentView === 'contact' && <ContactSection />}
         {currentView === 'login' && <LoginSection setView={setView} />}
         {currentView === 'portal' && <ClientPortal setView={setView} />}
-        {currentView === 'admin' && <AdminDashboard setView={setView} />}
-        {currentView === 'settings' && <SettingsPage />}
+        {currentView === 'admin' && <RequireAdmin setView={setView}><AdminDashboard setView={setView} /></RequireAdmin>}
+        {currentView === 'settings' && <RequireAuth setView={setView}><SettingsPage /></RequireAuth>}
         {currentView === 'terms' && <TermsOfServicePage setView={setView} />}
         {currentView === 'privacy' && <PrivacyPolicyPage setView={setView} />}
         {currentView === 'cancellation' && <CancellationPolicyPage setView={setView} />}
