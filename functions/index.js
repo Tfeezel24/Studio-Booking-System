@@ -708,7 +708,7 @@ async function updateBookingOnPayment(bookingId, paymentIntent, paymentOption) {
         }
 
         const bookingData = bookingSnap.data();
-        const paymentStatus = paymentOption === 'deposit' ? 'deposit_paid' : 'paid_in_full';
+        const paymentStatus = 'paid_in_full';
 
         await bookingRef.update({
             status: 'confirmed',

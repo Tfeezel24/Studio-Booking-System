@@ -1204,7 +1204,7 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
     setService(service);
   };
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'venmo' | 'zelle'>('stripe');
-  const [paymentOption, setPaymentOption] = useState<'full' | 'deposit'>('deposit');
+  const [paymentOption, setPaymentOption] = useState<'full' | 'deposit'>('full');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', phone: '', address: '', notes: '' });
@@ -1297,14 +1297,9 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
     return selectedService.basePrice + addonsTotal;
   };
 
-  // Calculate the actual amount due after applying the 5% full-payment discount
-  const FULL_PAYMENT_DISCOUNT = 0.05;
+  // Calculate the actual amount due
   const calculateFinalAmount = () => {
-    const subtotal = calculateTotal();
-    if (paymentOption === 'full') {
-      return subtotal * (1 - FULL_PAYMENT_DISCOUNT);
-    }
-    return subtotal;
+    return calculateTotal();
   };
 
   // ─── Create Booking BEFORE payment (fixes race condition) ───────────────────
@@ -1316,12 +1311,8 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
 
     try {
       const subtotal = calculateTotal();
-      const total = paymentOption === 'full'
-        ? subtotal * (1 - FULL_PAYMENT_DISCOUNT)
-        : subtotal;
-      const depositAmount = paymentOption === 'deposit'
-        ? (subtotal * (selectedService.depositRequired || 0)) / 100
-        : 0;
+      const total = subtotal;
+      const depositAmount = 0;
 
       // Lookup client record for this user
       let resolvedClientId = '';
@@ -1882,12 +1873,7 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
                   </div>
                 ))}
                 <Separator className="my-2" />
-                {paymentOption === 'full' && (
-                  <div className="flex justify-between text-green-600 text-sm">
-                    <span>5% Full Payment Discount</span>
-                    <span>-{formatPrice(calculateTotal() * FULL_PAYMENT_DISCOUNT)}</span>
-                  </div>
-                )}
+
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
                   <span className="text-[#8f5e25]">{formatPrice(calculateFinalAmount())}</span>
@@ -1906,28 +1892,12 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
             <div className="bg-card p-6 rounded-lg border">
               <h3 className="font-semibold mb-4">Payment Option</h3>
               <div className="flex gap-4">
-                <button
-                  onClick={() => setPaymentOption('deposit')}
-                  className={`flex-1 p-4 rounded-lg border-2 text-left transition-colors ${paymentOption === 'deposit'
-                    ? 'border-[#cbb26a] bg-[#cbb26a]/20'
-                    : 'border-border hover:border-[#dbc88a]'
-                    }`}
-                >
-                  <p className="font-medium">Pay Deposit ({selectedService.depositRequired}%)</p>
-                  <p className="text-2xl font-bold text-[#8f5e25]">{formatPrice(calculateTotal() * selectedService.depositRequired / 100)}</p>
-                  <p className="text-sm text-muted-foreground">Balance due at delivery</p>
-                </button>
-                <button
-                  onClick={() => setPaymentOption('full')}
-                  className={`flex-1 p-4 rounded-lg border-2 text-left transition-colors ${paymentOption === 'full'
-                    ? 'border-[#cbb26a] bg-[#cbb26a]/20'
-                    : 'border-border hover:border-[#dbc88a]'
-                    }`}
+                <div
+                  className="flex-1 p-4 rounded-lg border-2 text-left transition-colors border-[#cbb26a] bg-[#cbb26a]/20"
                 >
                   <p className="font-medium">Pay Full Amount</p>
-                  <p className="text-2xl font-bold text-[#8f5e25]">{formatPrice(calculateTotal() * (1 - FULL_PAYMENT_DISCOUNT))}</p>
-                  <p className="text-sm text-green-600 font-medium">Save {formatPrice(calculateTotal() * FULL_PAYMENT_DISCOUNT)} (5% off)</p>
-                </button>
+                  <p className="text-2xl font-bold text-[#8f5e25]">{formatPrice(calculateTotal())}</p>
+                </div>
               </div>
             </div>
 
@@ -2011,10 +1981,7 @@ function BookingSection({ setView }: { setView: (v: View) => void }) {
               <div className="bg-card p-6 rounded-lg border mt-6">
                 <h3 className="font-semibold mb-4">Enter Card Details</h3>
                 <PaymentForm
-                  amount={paymentOption === 'deposit'
-                    ? calculateTotal() * (selectedService.depositRequired || 0) / 100
-                    : calculateFinalAmount()
-                  }
+                  amount={calculateFinalAmount()}
                   email={formData.email}
                   invoiceId={undefined}
                   bookingId={pendingBookingId || undefined}

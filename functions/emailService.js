@@ -97,7 +97,7 @@ function buildConfirmationEmail(booking, paymentAmount, paymentOption) {
         `).join("")
         : "";
 
-    const paymentLabel = paymentOption === "deposit" ? "Deposit Paid" : "Paid in Full";
+    const paymentLabel = "Paid in Full";
 
     return `
 <!DOCTYPE html>
