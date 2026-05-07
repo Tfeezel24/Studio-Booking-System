@@ -13,6 +13,7 @@ import {
     Timestamp,
     serverTimestamp,
     setDoc,
+    writeBatch,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
@@ -451,6 +452,14 @@ export const portfolioService = {
 
     async delete(id: string): Promise<void> {
         await deleteDoc(doc(db, "portfolio", id));
+    },
+
+    async batchUpdateSortOrder(updates: { id: string; sortOrder: number }[]): Promise<void> {
+        const batch = writeBatch(db);
+        for (const { id, sortOrder } of updates) {
+            batch.update(doc(db, "portfolio", id), { sortOrder });
+        }
+        await batch.commit();
     },
 };
 

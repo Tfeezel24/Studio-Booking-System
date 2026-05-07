@@ -23,6 +23,7 @@ import type {
 import { ProjectsTab, InvoicesTab } from '@/components/AdminProjectTabs';
 import { TransactionsTab } from '@/components/AdminTransactionsTab';
 import { AdminManagementTab } from '@/components/AdminManagementTab';
+import { PortfolioReorderTab } from '@/components/PortfolioReorderTab';
 
 type View = 'home' | 'portfolio' | 'services' | 'booking' | 'about' | 'contact' | 'portal' | 'admin' | 'login';
 
@@ -212,7 +213,20 @@ export function AdminDashboard({ setView }: { setView: (v: View) => void }) {
                     <TabsContent value="carousel"><CarouselTab videos={carouselVideos} onCreate={adminCreateCarouselVideo} onUpdate={adminUpdateCarouselVideo} onDelete={adminDeleteCarouselVideo} /></TabsContent>
 
                     {/* ═══════ PORTFOLIO TAB ═══════ */}
-                    <TabsContent value="portfolio"><PortfolioTab items={portfolioItems} categories={portfolioCategories} onCreate={adminCreatePortfolioItem} onUpdate={adminUpdatePortfolioItem} onDelete={adminDeletePortfolioItem} onSetCategories={adminSetPortfolioCategories} onDeleteCategory={adminDeletePortfolioCategory} /></TabsContent>
+                    <TabsContent value="portfolio">
+                        <Tabs defaultValue="manage">
+                            <TabsList className="mb-6">
+                                <TabsTrigger value="manage"><ImageIcon className="w-4 h-4 mr-1" />Manage</TabsTrigger>
+                                <TabsTrigger value="reorder"><TrendingUp className="w-4 h-4 mr-1" />Reorder</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="manage">
+                                <PortfolioTab items={portfolioItems} categories={portfolioCategories} onCreate={adminCreatePortfolioItem} onUpdate={adminUpdatePortfolioItem} onDelete={adminDeletePortfolioItem} onSetCategories={adminSetPortfolioCategories} onDeleteCategory={adminDeletePortfolioCategory} />
+                            </TabsContent>
+                            <TabsContent value="reorder">
+                                <PortfolioReorderTab items={portfolioItems} categories={portfolioCategories} />
+                            </TabsContent>
+                        </Tabs>
+                    </TabsContent>
 
                     {/* ═══════ PACKAGES TAB ═══════ */}
                     <TabsContent value="packages"><PackagesTab services={services} addOns={addOns} onCreateService={adminCreateService} onUpdateService={adminUpdateService} onDeleteService={adminDeleteService} onCreateAddOn={adminCreateAddOn} onUpdateAddOn={adminUpdateAddOn} onDeleteAddOn={adminDeleteAddOn} /></TabsContent>

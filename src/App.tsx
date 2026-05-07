@@ -702,71 +702,93 @@ function PortfolioVideo({ item }: { item: PortfolioItem }) {
 
 // Portfolio Section
 function PortfolioSection() {
-  const [filter, setFilter] = useState<string>('featured');
+  const [mainTab, setMainTab] = useState<'photo' | 'video'>('photo');
+  const [subFilter, setSubFilter] = useState<string>('real-estate');
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const { portfolioItems, portfolioCategories } = useStore();
 
-  // Format slug label: 'real-estate' → 'Real Estate'
   const formatLabel = (slug: string) =>
     slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-  // Dynamic categories: only show categories that have at least one item
-  // 'bts' is excluded from the 'all' display but can still have its own tab if it has items
-  const populatedCategories = portfolioCategories.filter(cat =>
-    portfolioItems.some((item: PortfolioItem) => item.category === cat)
-  );
+  // Split items by type
+  const photoItems = (portfolioItems as PortfolioItem[]).filter(i => !i.videoUrl);
+  const videoItems = (portfolioItems as PortfolioItem[]).filter(i => !!i.videoUrl);
+  const activeItems = mainTab === 'photo' ? photoItems : videoItems;
 
-  const categories = [
-    { value: 'featured', label: 'Featured Work' },
-    ...populatedCategories.map(cat => ({ value: cat, label: formatLabel(cat) })),
+  // Categories that have items in this tab, sorted: real-estate first, then rest
+  const HIDDEN_CATS = new Set(['bts', 'video']);
+  const activeCats = portfolioCategories.filter((cat: string) =>
+    !HIDDEN_CATS.has(cat) && activeItems.some((i: PortfolioItem) => i.category === cat)
+  );
+  const orderedCats = [
+    ...activeCats.filter((c: string) => c === 'real-estate'),
+    ...activeCats.filter((c: string) => c !== 'real-estate'),
   ];
 
-  const filteredItems = filter === 'featured'
-    ? portfolioItems.filter((item: PortfolioItem) => item.featured)
-    : filter === 'all'
-      ? portfolioItems.filter((item: PortfolioItem) => item.category !== 'bts')
-      : portfolioItems.filter((item: PortfolioItem) => item.category === filter);
+  // Reset sub-filter when switching main tab
+  useEffect(() => {
+    const first = orderedCats[0] ?? '';
+    setSubFilter(first);
+    setVisibleCount(12);
+  }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pagination Logic
-  const displayedItems = filteredItems.slice(0, visibleCount);
-
-  const handleLoadMore = () => {
-    setVisibleCount(prev => prev + 12);
-  };
-
-  // Reset pagination when filter changes
+  // Reset pagination when sub-filter changes
   useEffect(() => {
     setVisibleCount(12);
-  }, [filter]);
+  }, [subFilter]);
+
+  const filteredItems = activeItems
+    .filter((i: PortfolioItem) => i.category === subFilter)
+    .sort((a: PortfolioItem, b: PortfolioItem) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
+
+  const displayedItems = filteredItems.slice(0, visibleCount);
 
   return (
     <div className="min-h-screen pt-20 pb-20 px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">Portfolio</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto" style={{ fontFamily: "'Inter', sans-serif" }}>
-            {filter === 'featured'
-              ? 'A Selection of recent projects that highlight our craftsmanship'
-              : 'A curated selection of recent work across real estate, brands, and commercial projects'}
+            A curated selection of recent work across real estate, brands, and commercial projects
           </p>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap justify-center gap-2 mb-10">
-          {categories.map(cat => (
+        {/* Main tabs: Photos | Videos */}
+        <div className="flex justify-center gap-3 mb-6">
+          {(['photo', 'video'] as const).map(tab => (
             <button
-              key={cat.value}
-              onClick={() => setFilter(cat.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter === cat.value
-                ? 'bg-gradient-to-r from-[#8f5e25] to-[#cbb26a] text-white'
-                : 'bg-[#cbb26a]/20 text-[#8f5e25] hover:bg-[#e8d9b0]'
-                }`}
+              key={tab}
+              onClick={() => setMainTab(tab)}
+              className={`px-8 py-2.5 rounded-full text-sm font-semibold transition-all ${
+                mainTab === tab
+                  ? 'bg-gradient-to-r from-[#8f5e25] to-[#cbb26a] text-white shadow-md'
+                  : 'bg-[#cbb26a]/20 text-[#8f5e25] hover:bg-[#e8d9b0]'
+              }`}
             >
-              {cat.label}
+              {tab === 'photo' ? 'Photos' : 'Videos'}
             </button>
           ))}
         </div>
+
+        {/* Sub-filter category tabs */}
+        {orderedCats.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-2 mb-10">
+            {orderedCats.map((cat: string) => (
+              <button
+                key={cat}
+                onClick={() => setSubFilter(cat)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  subFilter === cat
+                    ? 'bg-gradient-to-r from-[#8f5e25] to-[#cbb26a] text-white'
+                    : 'bg-[#cbb26a]/20 text-[#8f5e25] hover:bg-[#e8d9b0]'
+                }`}
+              >
+                {formatLabel(cat)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Gallery */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -775,9 +797,7 @@ function PortfolioSection() {
               key={item.id}
               className="group relative aspect-[4/3] overflow-hidden rounded-lg cursor-pointer bg-black/5"
               onClick={() => {
-                if (!item.videoUrl) {
-                  setSelectedImage(item.image);
-                }
+                if (!item.videoUrl) setSelectedImage(item.image);
               }}
             >
               {item.videoUrl ? (
@@ -791,9 +811,7 @@ function PortfolioSection() {
                     decoding="async"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  {/* Gradient at the top for text readability */}
                   <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  {/* Info overlay – positioned at the TOP */}
                   <div className="absolute top-0 left-0 right-0 flex flex-col p-6 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Badge className="w-fit mb-2 bg-[#cbb26a]/30 text-white border-0">
                       {item.category}
@@ -805,17 +823,22 @@ function PortfolioSection() {
               )}
             </div>
           ))}
+          {displayedItems.length === 0 && (
+            <p className="col-span-3 text-center py-16 text-muted-foreground">
+              No {mainTab === 'photo' ? 'photos' : 'videos'} in this category yet.
+            </p>
+          )}
         </div>
 
-        {/* Load More Button */}
+        {/* Load More */}
         {visibleCount < filteredItems.length && (
           <div className="text-center mt-12">
             <Button
-              onClick={handleLoadMore}
+              onClick={() => setVisibleCount(v => v + 12)}
               variant="outline"
               className="border-[#cbb26a] text-[#8f5e25] hover:bg-[#cbb26a]/10 min-w-[200px]"
             >
-              Load More Work
+              Load More
             </Button>
           </div>
         )}
@@ -829,10 +852,7 @@ function PortfolioSection() {
         >
           <button
             className="absolute top-6 right-6 text-white/70 hover:text-white z-50 p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedImage(null);
-            }}
+            onClick={e => { e.stopPropagation(); setSelectedImage(null); }}
           >
             <X className="w-8 h-8" />
           </button>
@@ -840,7 +860,7 @@ function PortfolioSection() {
             src={selectedImage}
             alt="Expanded view"
             className="max-w-full max-h-[90vh] object-contain rounded-md shadow-2xl animate-in fade-in zoom-in duration-300"
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           />
         </div>
       )}
