@@ -714,22 +714,23 @@ function PortfolioSection() {
   // Split items by type
   const photoItems = (portfolioItems as PortfolioItem[]).filter(i => !i.videoUrl);
   const videoItems = (portfolioItems as PortfolioItem[]).filter(i => !!i.videoUrl);
-  const activeItems = mainTab === 'photo' ? photoItems : videoItems;
 
-  // Categories that have items in this tab, sorted: real-estate first, then rest
-  const HIDDEN_CATS = new Set(['bts', 'video']);
-  const activeCats = portfolioCategories.filter((cat: string) =>
-    !HIDDEN_CATS.has(cat) && activeItems.some((i: PortfolioItem) => i.category === cat)
+  // Photos: sub-filter by category. Videos: show all, no sub-filter.
+  // Hide generic/redundant slugs from photo sub-tabs.
+  const PHOTO_HIDDEN_CATS = new Set(['bts', 'video', 'photo', 'photos']);
+  const photoCats = portfolioCategories.filter((cat: string) =>
+    !PHOTO_HIDDEN_CATS.has(cat) && photoItems.some((i: PortfolioItem) => i.category === cat)
   );
-  const orderedCats = [
-    ...activeCats.filter((c: string) => c === 'real-estate'),
-    ...activeCats.filter((c: string) => c !== 'real-estate'),
-  ];
+  const orderedCats = mainTab === 'photo' ? [
+    ...photoCats.filter((c: string) => c === 'real-estate'),
+    ...photoCats.filter((c: string) => c !== 'real-estate'),
+  ] : []; // Videos tab has no sub-filter
 
-  // Reset sub-filter when switching main tab
+  // Reset sub-filter to first photo category when switching to Photos
   useEffect(() => {
-    const first = orderedCats[0] ?? '';
-    setSubFilter(first);
+    if (mainTab === 'photo') {
+      setSubFilter(orderedCats[0] ?? '');
+    }
     setVisibleCount(12);
   }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -738,9 +739,11 @@ function PortfolioSection() {
     setVisibleCount(12);
   }, [subFilter]);
 
-  const filteredItems = activeItems
-    .filter((i: PortfolioItem) => i.category === subFilter)
-    .sort((a: PortfolioItem, b: PortfolioItem) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
+  const filteredItems = mainTab === 'video'
+    ? [...videoItems].sort((a: PortfolioItem, b: PortfolioItem) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999))
+    : [...photoItems]
+        .filter((i: PortfolioItem) => i.category === subFilter)
+        .sort((a: PortfolioItem, b: PortfolioItem) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
 
   const displayedItems = filteredItems.slice(0, visibleCount);
 
