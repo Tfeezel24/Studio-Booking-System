@@ -115,7 +115,6 @@ function VideoThumb({ videoUrl, className }: { videoUrl: string; className?: str
                 preload="auto"
                 muted
                 playsInline
-                crossOrigin="anonymous"
                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'}`}
             />
             {!ready && (
