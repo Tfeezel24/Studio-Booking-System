@@ -737,12 +737,22 @@ function PortfolioSection() {
   const sorted = (arr: PortfolioItem[]) =>
     [...arr].sort((a, b) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
 
+  // When showing all photos (no sub-filter), BTS category sinks to bottom; property photos float first
+  const BTS_CATS = new Set(['bts']);
+  const sortedAllPhotos = (arr: PortfolioItem[]) =>
+    [...arr].sort((a, b) => {
+      const aIsBottom = BTS_CATS.has(a.category) ? 1 : 0;
+      const bIsBottom = BTS_CATS.has(b.category) ? 1 : 0;
+      if (aIsBottom !== bIsBottom) return aIsBottom - bIsBottom;
+      return (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999);
+    });
+
   // Videos: all videos. Photos: filter by subFilter if one is selected, else show all photos.
   const filteredItems = mainTab === 'video'
     ? sorted(videoItems)
     : subFilter
       ? sorted(photoItems.filter((i: PortfolioItem) => i.category === subFilter))
-      : sorted(photoItems);
+      : sortedAllPhotos(photoItems);
 
   const displayedItems = filteredItems.slice(0, visibleCount);
 
