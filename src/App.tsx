@@ -715,8 +715,8 @@ function PortfolioSection() {
   const photoItems = (portfolioItems as PortfolioItem[]).filter(i => !i.videoUrl);
   const videoItems = (portfolioItems as PortfolioItem[]).filter(i => !!i.videoUrl);
 
-  // Photos: sub-filter by category. Videos: show all, no sub-filter.
-  // Hide generic/redundant slugs from photo sub-tabs.
+  // Photos: sub-filter by category (hide generic slugs from tabs but still show their items).
+  // Videos: show all, no sub-filter.
   const PHOTO_HIDDEN_CATS = new Set(['bts', 'video', 'photo', 'photos']);
   const photoCats = portfolioCategories.filter((cat: string) =>
     !PHOTO_HIDDEN_CATS.has(cat) && photoItems.some((i: PortfolioItem) => i.category === cat)
@@ -724,26 +724,25 @@ function PortfolioSection() {
   const orderedCats = mainTab === 'photo' ? [
     ...photoCats.filter((c: string) => c === 'real-estate'),
     ...photoCats.filter((c: string) => c !== 'real-estate'),
-  ] : []; // Videos tab has no sub-filter
+  ] : [];
 
-  // Reset sub-filter to first photo category when switching to Photos
+  // Reset sub-filter when switching to Photos; if no named cats exist keep '' to show all
   useEffect(() => {
-    if (mainTab === 'photo') {
-      setSubFilter(orderedCats[0] ?? '');
-    }
+    if (mainTab === 'photo') setSubFilter(orderedCats[0] ?? '');
     setVisibleCount(12);
   }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset pagination when sub-filter changes
-  useEffect(() => {
-    setVisibleCount(12);
-  }, [subFilter]);
+  useEffect(() => { setVisibleCount(12); }, [subFilter]);
 
+  const sorted = (arr: PortfolioItem[]) =>
+    [...arr].sort((a, b) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
+
+  // Videos: all videos. Photos: filter by subFilter if one is selected, else show all photos.
   const filteredItems = mainTab === 'video'
-    ? [...videoItems].sort((a: PortfolioItem, b: PortfolioItem) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999))
-    : [...photoItems]
-        .filter((i: PortfolioItem) => i.category === subFilter)
-        .sort((a: PortfolioItem, b: PortfolioItem) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
+    ? sorted(videoItems)
+    : subFilter
+      ? sorted(photoItems.filter((i: PortfolioItem) => i.category === subFilter))
+      : sorted(photoItems);
 
   const displayedItems = filteredItems.slice(0, visibleCount);
 
