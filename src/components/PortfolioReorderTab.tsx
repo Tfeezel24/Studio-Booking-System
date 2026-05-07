@@ -313,15 +313,18 @@ export function PortfolioReorderTab({
     const [saved, setSaved] = useState(false);
     const [activeType, setActiveType] = useState<'photo' | 'video'>('photo');
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const pendingItemsRef = useRef<PortfolioItem[]>([]);
+    const isSavingRef = useRef(false);
 
     // Confirm-delete dialog state
     const [pendingDelete, setPendingDelete] = useState<PortfolioItem | null>(null);
     const [deleting, setDeleting] = useState(false);
 
-    // Sync from props whenever items change
+    // Sync from props on load and when items are added/removed externally.
+    // Guard prevents overwriting an in-flight drag reorder.
     useEffect(() => {
-        setLocalItems([...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
+        if (!isSavingRef.current) {
+            setLocalItems([...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
+        }
     }, [items]);
 
     const formatLabel = (slug: string) =>
@@ -335,12 +338,13 @@ export function PortfolioReorderTab({
     );
     const activeCategories = activeType === 'photo' ? photoCategories : videoCategories;
 
-    const doSave = useCallback(async () => {
-        const items = pendingItemsRef.current;
+    // Accepts the exact items array to save — no stale-ref risk
+    const doSave = useCallback(async (itemsToSave: PortfolioItem[]) => {
+        isSavingRef.current = true;
         setSaving(true);
         try {
             const byCategory: Record<string, PortfolioItem[]> = {};
-            for (const item of items) {
+            for (const item of itemsToSave) {
                 if (!byCategory[item.category]) byCategory[item.category] = [];
                 byCategory[item.category].push(item);
             }
@@ -352,25 +356,25 @@ export function PortfolioReorderTab({
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
-            console.error(err);
+            console.error('Save failed:', err);
         } finally {
             setSaving(false);
+            isSavingRef.current = false;
         }
     }, []);
 
     const handleReorder = useCallback(
         (category: string, newItems: PortfolioItem[]) => {
             setSaved(false);
-            setLocalItems(prev => {
-                const others = prev.filter(i => i.category !== category);
-                const next = [...others, ...newItems];
-                pendingItemsRef.current = next;
-                if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-                saveTimerRef.current = setTimeout(doSave, 800);
-                return next;
-            });
+            // Compute next state synchronously — no updater pattern so no side-effect risk
+            const others = localItems.filter(i => i.category !== category);
+            const next = [...others, ...newItems];
+            setLocalItems(next);
+            // Debounce slightly so rapid drags merge into one save
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = setTimeout(() => doSave(next), 150);
         },
-        [doSave],
+        [doSave, localItems],
     );
 
     // Called when user clicks the trash icon on a card
