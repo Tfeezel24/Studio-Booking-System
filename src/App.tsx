@@ -568,16 +568,7 @@ function HomeSection({ setView }: { setView: (v: View) => void }) {
                 onClick={() => setView('portfolio')}
               >
                 {item.videoUrl ? (
-                  <video
-                    src={item.videoUrl}
-                    poster={item.thumbnail || item.image}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    autoPlay
-                    loop
-                    playsInline
-                    muted
-                    preload="auto"
-                  />
+                  <PortfolioVideo item={item} index={index} />
                 ) : (
                   <img
                     src={item.thumbnail || item.image}
@@ -646,50 +637,57 @@ function HomeSection({ setView }: { setView: (v: View) => void }) {
   );
 }
 
-// Portfolio Video Component
-function PortfolioVideo({ item }: { item: PortfolioItem }) {
+// Portfolio Video Component — lazy loads + plays only when scrolled into view
+// Staggered by index so videos don't all hammer bandwidth simultaneously
+function PortfolioVideo({ item, index = 0 }: { item: PortfolioItem; index?: number }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const visible = entry.isIntersecting;
+        setIsInView(visible);
+        if (visible) setShouldLoad(true); // once triggered, keep src loaded
+      },
+      { rootMargin: '300px 0px', threshold: 0 }
+    );
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
-
-    const handleLoadedData = () => {
-      video.play().catch(() => { });
-    };
-
-    video.addEventListener('loadeddata', handleLoadedData);
-    // If already loaded, play immediately
-    if (video.readyState >= 2) {
-      video.play().catch(() => { });
+    if (!video || !shouldLoad) return;
+    if (isInView) {
+      // Stagger play start per card so bandwidth isn't contested
+      const t = setTimeout(() => video.play().catch(() => {}), index * 120);
+      return () => clearTimeout(t);
+    } else {
+      video.pause();
     }
-
-    return () => {
-      video.removeEventListener('loadeddata', handleLoadedData);
-    };
-  }, []);
+  }, [isInView, shouldLoad, index]);
 
   return (
-    <div
-      className="w-full h-full relative bg-black overflow-hidden"
-    >
+    <div ref={containerRef} className="w-full h-full relative bg-black overflow-hidden">
       <video
         ref={videoRef}
-        src={item.videoUrl}
+        src={shouldLoad ? item.videoUrl : undefined}
         poster={item.thumbnail}
         className="w-full h-full object-cover"
-        autoPlay
         loop
         playsInline
         muted
         controls
-        preload="auto"
+        preload={shouldLoad ? 'auto' : 'none'}
       />
-
-      <div className="absolute top-0 left-0 right-0 flex flex-col px-4 py-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20"
-        style={{
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)'
-        }}
+      <div
+        className="absolute top-0 left-0 right-0 flex flex-col px-4 py-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20"
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}
       >
         <Badge className="w-fit mb-1 bg-[#cbb26a]/90 text-white border-0 text-xs">
           {item.category}
@@ -804,7 +802,7 @@ function PortfolioSection() {
 
         {/* Gallery */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displayedItems.map((item: PortfolioItem) => (
+          {displayedItems.map((item: PortfolioItem, idx: number) => (
             <div
               key={item.id}
               className="group relative aspect-[4/3] overflow-hidden rounded-lg cursor-pointer bg-black/5"
@@ -813,7 +811,7 @@ function PortfolioSection() {
               }}
             >
               {item.videoUrl ? (
-                <PortfolioVideo item={item} />
+                <PortfolioVideo item={item} index={idx} />
               ) : (
                 <>
                   <img
