@@ -96,7 +96,7 @@ function Navigation({ currentView, setView }: { currentView: View; setView: (v: 
   const navItems = [
     { label: 'Home', view: 'home' as View },
     { label: 'Portfolio', view: 'portfolio' as View },
-    { label: 'Packages', view: 'services' as View },
+    { label: 'Pricing', view: 'services' as View },
     { label: 'About', view: 'about' as View },
     { label: 'Contact', view: 'contact' as View },
   ];
@@ -801,7 +801,7 @@ function ServicesSection({ setView }: { setView: (v: View) => void }) {
     <div className="min-h-screen pt-20 pb-20 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-4">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">Packages & Pricing</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">Pricing</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto" style={{ fontFamily: "'Inter', sans-serif" }}>
             Strategic photo, video, and drone packages that make you stand out.
           </p>
@@ -2217,47 +2217,73 @@ function Footer({ setView }: { setView: (v: View) => void }) {
 }
 
 // Main App Component
+const viewPaths: Record<View, string> = {
+  home: '/',
+  portfolio: '/portfolio',
+  services: '/pricing',
+  booking: '/booking',
+  about: '/about',
+  contact: '/contact',
+  portal: '/portal',
+  admin: '/admin',
+  login: '/login',
+  settings: '/settings',
+};
+
+const viewTitles: Record<View, string> = {
+  home: 'Real Luxe Studios — Premium Photography & Video',
+  portfolio: 'Portfolio',
+  services: 'Pricing',
+  booking: 'Book Now',
+  about: 'About',
+  contact: 'Contact',
+  portal: 'Client Portal',
+  admin: 'Admin Dashboard',
+  login: 'Login',
+  settings: 'Account Settings',
+};
+
+function getViewFromLocation(): View {
+  if (typeof window === 'undefined') return 'home';
+
+  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  if (path === '/packages') return 'services';
+
+  const pathEntry = Object.entries(viewPaths).find(([, routePath]) => routePath === path);
+  if (pathEntry) return pathEntry[0] as View;
+
+  const params = new URLSearchParams(window.location.search);
+  return (params.get('view') as View) || 'home';
+}
+
 function App() {
-  const [currentView, _setCurrentView] = useState<View>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      return (params.get('view') as View) || 'home';
-    }
-    return 'home';
-  });
+  const [currentView, _setCurrentView] = useState<View>(() => getViewFromLocation());
 
   const setCurrentView = (view: View | ((prev: View) => View)) => {
     if (typeof view === 'function') {
       _setCurrentView((prev) => {
         const nextView = view(prev);
         if (typeof window !== 'undefined') {
-          window.history.pushState({ view: nextView }, '', `?view=${nextView}`);
+          window.history.pushState({ view: nextView }, '', viewPaths[nextView]);
         }
         return nextView;
       });
     } else {
       if (typeof window !== 'undefined') {
-        window.history.pushState({ view }, '', `?view=${view}`);
+        window.history.pushState({ view }, '', viewPaths[view]);
       }
       _setCurrentView(view);
     }
   };
 
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (event.state && event.state.view) {
-        _setCurrentView(event.state.view);
-      } else {
-        const params = new URLSearchParams(window.location.search);
-        _setCurrentView((params.get('view') as View) || 'home');
-      }
+    const handlePopState = () => {
+      _setCurrentView(getViewFromLocation());
     };
 
-    if (typeof window !== 'undefined' && !window.history.state) {
-      window.history.replaceState({ view: currentView }, '', `?view=${currentView}`);
-    }
-
     if (typeof window !== 'undefined') {
+      const normalizedPath = viewPaths[currentView];
+      window.history.replaceState({ view: currentView }, '', normalizedPath);
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
     }
@@ -2290,8 +2316,9 @@ function App() {
     }
   }, [dataLoaded]);
 
-  // Scroll to top on view change
+  // Keep the browser title and scroll position in sync with the active page
   useEffect(() => {
+    document.title = viewTitles[currentView];
     window.scrollTo(0, 0);
   }, [currentView]);
 
