@@ -61,6 +61,7 @@ export function AdminDashboard({ setView }: { setView: (v: View) => void }) {
     } = useAdmin();
 
     const [activeTab, setActiveTab] = useState('overview');
+    const [portfolioSubTab, setPortfolioSubTab] = useState<'manage' | 'reorder'>('manage');
 
     // Scroll to top on tab change
     useEffect(() => {
@@ -214,18 +215,30 @@ export function AdminDashboard({ setView }: { setView: (v: View) => void }) {
 
                     {/* ═══════ PORTFOLIO TAB ═══════ */}
                     <TabsContent value="portfolio">
-                        <Tabs defaultValue="manage">
-                            <TabsList className="mb-6">
-                                <TabsTrigger value="manage"><ImageIcon className="w-4 h-4 mr-1" />Manage</TabsTrigger>
-                                <TabsTrigger value="reorder"><TrendingUp className="w-4 h-4 mr-1" />Reorder</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="manage">
+                        <div>
+                            <div className="flex gap-2 mb-6">
+                                <Button
+                                    variant={portfolioSubTab === 'manage' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setPortfolioSubTab('manage')}
+                                >
+                                    <ImageIcon className="w-4 h-4 mr-1" />Manage
+                                </Button>
+                                <Button
+                                    variant={portfolioSubTab === 'reorder' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setPortfolioSubTab('reorder')}
+                                >
+                                    <TrendingUp className="w-4 h-4 mr-1" />Reorder
+                                </Button>
+                            </div>
+                            {portfolioSubTab === 'manage' && (
                                 <PortfolioTab items={portfolioItems} categories={portfolioCategories} onCreate={adminCreatePortfolioItem} onUpdate={adminUpdatePortfolioItem} onDelete={adminDeletePortfolioItem} onSetCategories={adminSetPortfolioCategories} onDeleteCategory={adminDeletePortfolioCategory} />
-                            </TabsContent>
-                            <TabsContent value="reorder">
+                            )}
+                            {portfolioSubTab === 'reorder' && (
                                 <PortfolioReorderTab items={portfolioItems} categories={portfolioCategories} />
-                            </TabsContent>
-                        </Tabs>
+                            )}
+                        </div>
                     </TabsContent>
 
                     {/* ═══════ PACKAGES TAB ═══════ */}
