@@ -113,7 +113,7 @@ function Navigation({ currentView, setView }: { currentView: View; setView: (v: 
   const navItems = [
     { label: 'Home', view: 'home' as View },
     { label: 'Portfolio', view: 'portfolio' as View },
-    { label: 'Packages', view: 'services' as View },
+    { label: 'Pricing', view: 'services' as View },
     { label: 'About', view: 'about' as View },
     { label: 'Contact', view: 'contact' as View },
   ];
@@ -2642,7 +2642,7 @@ function Footer({ setView }: { setView: (v: View) => void }) {
             <ul className="space-y-2 text-sm text-gray-400">
               <li><button onClick={() => setView('home')} className="hover:text-white">Home</button></li>
               <li><button onClick={() => setView('portfolio')} className="hover:text-white">Portfolio</button></li>
-              <li><button onClick={() => setView('services')} className="hover:text-white">Packages</button></li>
+              <li><button onClick={() => setView('services')} className="hover:text-white">Pricing</button></li>
               <li><button onClick={() => setView('about')} className="hover:text-white">About</button></li>
             </ul>
           </div>
