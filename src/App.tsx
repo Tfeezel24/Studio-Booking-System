@@ -581,71 +581,150 @@ function HomeSection({ setView }: { setView: (v: View) => void }) {
   );
 }
 
-// Portfolio Video Component — shows thumbnail with play button; loads + plays only on click
+// Portfolio Video Component — two-stage lazy load (same as thomassamuelmedia.com)
+// Stage 1: preload="metadata" starts 400px before viewport (fast first frame)
+// Stage 2: upgrades to preload="auto" + plays when actually visible
 function PortfolioVideo({ item }: { item: PortfolioItem }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [clicked, setClicked] = useState(false);
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setClicked(true);
-  };
+  const [inView, setInView] = useState(false);       // within 400px — mount video
+  const [isVisible, setIsVisible] = useState(false); // actually on screen — play
+  const [isReady, setIsReady] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [hasSeeked, setHasSeeked] = useState(false);
 
   useEffect(() => {
-    if (clicked) videoRef.current?.play().catch(() => {});
-  }, [clicked]);
+    const el = containerRef.current;
+    if (!el) return;
 
-  const thumb = item.thumbnail || item.image;
+    // Stage 1: mount video element when 400px away
+    const preloadObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          preloadObserver.disconnect();
+        }
+      },
+      { rootMargin: '400px' }
+    );
+    // Stage 2: play/pause when actually visible (25% threshold)
+    const playObserver = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin: '0px', threshold: 0.25 }
+    );
+
+    preloadObserver.observe(el);
+    playObserver.observe(el);
+    return () => { preloadObserver.disconnect(); playObserver.disconnect(); };
+  }, []);
+
+  // Wire up canplay / waiting / playing / error events once video mounts
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !inView) return;
+    const onCanPlay = () => { setIsReady(true); setIsBuffering(false); };
+    const onWaiting = () => setIsBuffering(true);
+    const onPlaying = () => setIsBuffering(false);
+    const onError = () => { setHasError(true); setIsBuffering(false); };
+    video.addEventListener('canplay', onCanPlay, { once: true });
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('playing', onPlaying);
+    video.addEventListener('error', onError);
+    return () => {
+      video.removeEventListener('canplay', onCanPlay);
+      video.removeEventListener('waiting', onWaiting);
+      video.removeEventListener('playing', onPlaying);
+      video.removeEventListener('error', onError);
+    };
+  }, [inView]);
+
+  // Play when visible, pause when scrolled away; upgrade preload when visible
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !inView) return;
+    if (isVisible) {
+      if (video.preload !== 'auto') { video.preload = 'auto'; video.load(); }
+      if (video.readyState >= 3) {
+        video.play().catch(() => {});
+      } else {
+        setIsBuffering(true);
+        const onReady = () => { video.play().catch(() => {}); };
+        video.addEventListener('canplay', onReady, { once: true });
+        return () => video.removeEventListener('canplay', onReady);
+      }
+    } else {
+      video.pause();
+    }
+  }, [isVisible, inView]);
+
+  // Fade in as soon as first frame data arrives (no black flash)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !inView) return;
+    const onData = () => setHasSeeked(true);
+    video.addEventListener('loadeddata', onData);
+    return () => video.removeEventListener('loadeddata', onData);
+  }, [inView]);
+
+  const thumb = item.thumbnail || item.image || null;
+  const formatLabel = (s: string) => s.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <div className="w-full h-full relative bg-black overflow-hidden" onClick={handleClick}>
-      {/* Thumbnail shown until clicked */}
-      {!clicked && (
-        <>
-          {thumb ? (
-            <img
-              src={thumb}
-              alt={item.title}
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full bg-black/20" />
-          )}
-          {/* Play button overlay */}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors">
-            <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-[#8f5e25] ml-1">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-          </div>
-          {/* Title */}
-          <div
-            className="absolute top-0 left-0 right-0 flex flex-col px-4 py-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20"
-            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}
-          >
-            <Badge className="w-fit mb-1 bg-[#cbb26a]/90 text-white border-0 text-xs">
-              {item.category}
-            </Badge>
-            <h3 className="text-white font-semibold text-sm drop-shadow-md truncate">{item.title}</h3>
-          </div>
-        </>
+    <div
+      ref={containerRef}
+      className="w-full h-full relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #1a1208 0%, #2c1e0d 50%, #1a1208 100%)' }}
+    >
+      {/* Thumbnail — shown until video has its own frame */}
+      {(!inView || (!isReady && !hasSeeked)) && !hasError && thumb && (
+        <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover z-10" loading="eager" />
       )}
-      {/* Video — only mounts after click so no bandwidth is used until then */}
-      {clicked && (
+
+      {/* Placeholder icon when no thumbnail yet */}
+      {!inView && !hasError && !thumb && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-full bg-[#cbb26a]/20 border border-[#cbb26a]/40 flex items-center justify-center">
+            <Play className="w-6 h-6 text-[#cbb26a] ml-1" />
+          </div>
+        </div>
+      )}
+
+      {/* Spinner — only while buffering after entering view */}
+      {inView && isVisible && !hasSeeked && !isReady && !hasError && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full border-2 border-[#cbb26a]/40 border-t-[#cbb26a] animate-spin" />
+        </div>
+      )}
+
+      {/* Error fallback */}
+      {hasError && (
+        <div className="absolute inset-0 flex items-center justify-center z-20">
+          {thumb && <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />}
+          <Play className="w-10 h-10 text-[#cbb26a] relative z-10" />
+        </div>
+      )}
+
+      {/* Video — mounts when 400px away, fades in when frame ready */}
+      {inView && !hasError && (
         <video
           ref={videoRef}
           src={item.videoUrl}
-          poster={thumb}
-          className="w-full h-full object-cover"
-          controls
+          poster={thumb || undefined}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${hasSeeked || isReady ? 'opacity-100' : 'opacity-0'}`}
+          loop
           playsInline
-          preload="auto"
-          autoPlay
+          muted
+          controls
+          preload="metadata"
         />
       )}
+
+      <div className="absolute top-0 left-0 px-4 py-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-30">
+        <Badge className="w-fit bg-[#cbb26a]/90 text-white border-0 text-xs">
+          {item.category ? formatLabel(item.category) : 'Video'}
+        </Badge>
+      </div>
     </div>
   );
 }
