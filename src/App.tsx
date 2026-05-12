@@ -756,7 +756,7 @@ function PortfolioSection() {
 
   const filteredItems: PortfolioItem[] = (() => {
     switch (activeTab) {
-      case 'real-estate': return sorted(photoItems.filter(i => i.category === 'real-estate'));
+      case 'real-estate': return sorted(photoItems.filter(i => i.category === 'real-estate' || i.category === 'photo' || i.category === 'photos'));
       case 'video':       return sorted(videoItems);
       case 'hotels':      return sorted(photoItems.filter(i => isHotel(i.category ?? '')));
       case 'bts':         return sorted(photoItems.filter(i => i.category === 'bts'));
