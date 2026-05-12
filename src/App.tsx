@@ -730,58 +730,41 @@ function PortfolioVideo({ item }: { item: PortfolioItem }) {
 }
 
 // Portfolio Section
+type PortfolioTab = 'real-estate' | 'video' | 'hotels' | 'bts';
+
+const PORTFOLIO_TABS: { key: PortfolioTab; label: string }[] = [
+  { key: 'real-estate', label: 'Real Estate' },
+  { key: 'video',       label: 'Video' },
+  { key: 'hotels',      label: 'Hotels & Resorts' },
+  { key: 'bts',         label: 'BTS' },
+];
+
 function PortfolioSection() {
-  const [mainTab, setMainTab] = useState<'photo' | 'video'>('photo');
-  const [subFilter, setSubFilter] = useState<string>('real-estate');
+  const [activeTab, setActiveTab] = useState<PortfolioTab>('real-estate');
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const { portfolioItems, portfolioCategories } = useStore();
+  const { portfolioItems } = useStore();
 
-  const formatLabel = (slug: string) =>
-    slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-  // Split items by type
-  const photoItems = (portfolioItems as PortfolioItem[]).filter(i => !i.videoUrl);
-  const videoItems = (portfolioItems as PortfolioItem[]).filter(i => !!i.videoUrl);
-
-  // Photos: sub-filter by category (hide generic slugs from tabs but still show their items).
-  // Videos: show all, no sub-filter.
-  const PHOTO_HIDDEN_CATS = new Set(['bts', 'video', 'photo', 'photos']);
-  const photoCats = portfolioCategories.filter((cat: string) =>
-    !PHOTO_HIDDEN_CATS.has(cat) && photoItems.some((i: PortfolioItem) => i.category === cat)
-  );
-  const orderedCats = mainTab === 'photo' ? [
-    ...photoCats.filter((c: string) => c === 'real-estate'),
-    ...photoCats.filter((c: string) => c !== 'real-estate'),
-  ] : [];
-
-  // Reset sub-filter when switching to Photos; if no named cats exist keep '' to show all
-  useEffect(() => {
-    if (mainTab === 'photo') setSubFilter(orderedCats[0] ?? '');
-    setVisibleCount(12);
-  }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { setVisibleCount(12); }, [subFilter]);
+  const allItems = portfolioItems as PortfolioItem[];
+  const photoItems = allItems.filter(i => !i.videoUrl);
+  const videoItems = allItems.filter(i => !!i.videoUrl);
 
   const sorted = (arr: PortfolioItem[]) =>
     [...arr].sort((a, b) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
 
-  // When showing all photos (no sub-filter), BTS category sinks to bottom; property photos float first
-  const BTS_CATS = new Set(['bts']);
-  const sortedAllPhotos = (arr: PortfolioItem[]) =>
-    [...arr].sort((a, b) => {
-      const aIsBottom = BTS_CATS.has(a.category) ? 1 : 0;
-      const bIsBottom = BTS_CATS.has(b.category) ? 1 : 0;
-      if (aIsBottom !== bIsBottom) return aIsBottom - bIsBottom;
-      return (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999);
-    });
+  const isHotel = (cat: string) => /hotel|resort/i.test(cat);
 
-  // Videos: all videos. Photos: filter by subFilter if one is selected, else show all photos.
-  const filteredItems = mainTab === 'video'
-    ? sorted(videoItems)
-    : subFilter
-      ? sorted(photoItems.filter((i: PortfolioItem) => i.category === subFilter))
-      : sortedAllPhotos(photoItems);
+  const filteredItems: PortfolioItem[] = (() => {
+    switch (activeTab) {
+      case 'real-estate': return sorted(photoItems.filter(i => i.category === 'real-estate'));
+      case 'video':       return sorted(videoItems);
+      case 'hotels':      return sorted(photoItems.filter(i => isHotel(i.category ?? '')));
+      case 'bts':         return sorted(photoItems.filter(i => i.category === 'bts'));
+      default:            return [];
+    }
+  })();
+
+  useEffect(() => { setVisibleCount(12); }, [activeTab]);
 
   const displayedItems = filteredItems.slice(0, visibleCount);
 
@@ -795,41 +778,22 @@ function PortfolioSection() {
           </p>
         </div>
 
-        {/* Main tabs: Photos | Videos */}
-        <div className="flex justify-center gap-3 mb-6">
-          {(['photo', 'video'] as const).map(tab => (
+        {/* Four main tabs */}
+        <div className="flex flex-wrap justify-center gap-3 mb-10">
+          {PORTFOLIO_TABS.map(({ key, label }) => (
             <button
-              key={tab}
-              onClick={() => setMainTab(tab)}
+              key={key}
+              onClick={() => setActiveTab(key)}
               className={`px-8 py-2.5 rounded-full text-sm font-semibold transition-all ${
-                mainTab === tab
+                activeTab === key
                   ? 'bg-gradient-to-r from-[#8f5e25] to-[#cbb26a] text-white shadow-md'
                   : 'bg-[#cbb26a]/20 text-[#8f5e25] hover:bg-[#e8d9b0]'
               }`}
             >
-              {tab === 'photo' ? 'Photos' : 'Videos'}
+              {label}
             </button>
           ))}
         </div>
-
-        {/* Sub-filter category tabs */}
-        {orderedCats.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2 mb-10">
-            {orderedCats.map((cat: string) => (
-              <button
-                key={cat}
-                onClick={() => setSubFilter(cat)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  subFilter === cat
-                    ? 'bg-gradient-to-r from-[#8f5e25] to-[#cbb26a] text-white'
-                    : 'bg-[#cbb26a]/20 text-[#8f5e25] hover:bg-[#e8d9b0]'
-                }`}
-              >
-                {formatLabel(cat)}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Gallery */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -866,7 +830,7 @@ function PortfolioSection() {
           ))}
           {displayedItems.length === 0 && (
             <p className="col-span-3 text-center py-16 text-muted-foreground">
-              No {mainTab === 'photo' ? 'photos' : 'videos'} in this category yet.
+              No items in this category yet.
             </p>
           )}
         </div>
