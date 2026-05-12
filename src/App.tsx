@@ -548,62 +548,6 @@ function HomeSection({ setView }: { setView: (v: View) => void }) {
         </div>
       </section>
 
-      {/* Portfolio Preview */}
-      <section className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <ScrollReveal>
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 gradient-text">Featured Work</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto" style={{ fontFamily: "'Inter', sans-serif" }}>
-                A selection of recent projects across real estate, brands, and events
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {portfolioItems.filter((p: PortfolioItem) => p.featured).slice(0, 4).map((item: PortfolioItem, index: number) => (
-              <ScrollReveal key={item.id} delay={index * 120}>
-              <div
-                className="group relative aspect-square overflow-hidden rounded-lg cursor-pointer bg-black/5"
-                onClick={() => setView('portfolio')}
-              >
-                {item.videoUrl ? (
-                  <PortfolioVideo item={item} index={index} />
-                ) : (
-                  <img
-                    src={item.thumbnail || item.image}
-                    alt={item.title}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors pointer-events-none" />
-                <div className="absolute inset-0 flex items-end p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <div className="text-white">
-                    <p className="font-medium">{item.title}</p>
-                    <p className="text-sm text-white/80">{item.client}</p>
-                  </div>
-                </div>
-              </div>
-              </ScrollReveal>
-            ))}
-          </div>
-
-          <ScrollReveal delay={400}>
-            <div className="text-center mt-10">
-              <Button
-                size="lg"
-                className="btn-gold text-white font-medium tracking-wide"
-                onClick={() => setView('portfolio')}
-              >
-                View Full Portfolio
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
 
       {/* Stats Counter */}
       <StatsCounter />
@@ -637,63 +581,71 @@ function HomeSection({ setView }: { setView: (v: View) => void }) {
   );
 }
 
-// Portfolio Video Component — lazy loads + plays only when scrolled into view
-// Staggered by index so videos don't all hammer bandwidth simultaneously
-function PortfolioVideo({ item, index = 0 }: { item: PortfolioItem; index?: number }) {
+// Portfolio Video Component — shows thumbnail with play button; loads + plays only on click
+function PortfolioVideo({ item }: { item: PortfolioItem }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [shouldLoad, setShouldLoad] = useState(false);
-  const [isInView, setIsInView] = useState(false);
+  const [clicked, setClicked] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClicked(true);
+  };
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const visible = entry.isIntersecting;
-        setIsInView(visible);
-        if (visible) setShouldLoad(true); // once triggered, keep src loaded
-      },
-      { rootMargin: '300px 0px', threshold: 0 }
-    );
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
+    if (clicked) videoRef.current?.play().catch(() => {});
+  }, [clicked]);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !shouldLoad) return;
-    if (isInView) {
-      // Stagger play start per card so bandwidth isn't contested
-      const t = setTimeout(() => video.play().catch(() => {}), index * 120);
-      return () => clearTimeout(t);
-    } else {
-      video.pause();
-    }
-  }, [isInView, shouldLoad, index]);
+  const thumb = item.thumbnail || item.image;
 
   return (
-    <div ref={containerRef} className="w-full h-full relative bg-black overflow-hidden">
-      <video
-        ref={videoRef}
-        src={shouldLoad ? item.videoUrl : undefined}
-        poster={item.thumbnail}
-        className="w-full h-full object-cover"
-        loop
-        playsInline
-        muted
-        controls
-        preload={shouldLoad ? 'auto' : 'none'}
-      />
-      <div
-        className="absolute top-0 left-0 right-0 flex flex-col px-4 py-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20"
-        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}
-      >
-        <Badge className="w-fit mb-1 bg-[#cbb26a]/90 text-white border-0 text-xs">
-          {item.category}
-        </Badge>
-        <h3 className="text-white font-semibold text-sm drop-shadow-md truncate">{item.title}</h3>
-      </div>
+    <div className="w-full h-full relative bg-black overflow-hidden" onClick={handleClick}>
+      {/* Thumbnail shown until clicked */}
+      {!clicked && (
+        <>
+          {thumb ? (
+            <img
+              src={thumb}
+              alt={item.title}
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-black/20" />
+          )}
+          {/* Play button overlay */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors">
+            <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-[#8f5e25] ml-1">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
+          </div>
+          {/* Title */}
+          <div
+            className="absolute top-0 left-0 right-0 flex flex-col px-4 py-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}
+          >
+            <Badge className="w-fit mb-1 bg-[#cbb26a]/90 text-white border-0 text-xs">
+              {item.category}
+            </Badge>
+            <h3 className="text-white font-semibold text-sm drop-shadow-md truncate">{item.title}</h3>
+          </div>
+        </>
+      )}
+      {/* Video — only mounts after click so no bandwidth is used until then */}
+      {clicked && (
+        <video
+          ref={videoRef}
+          src={item.videoUrl}
+          poster={thumb}
+          className="w-full h-full object-cover"
+          controls
+          playsInline
+          preload="auto"
+          autoPlay
+        />
+      )}
     </div>
   );
 }
@@ -811,7 +763,7 @@ function PortfolioSection() {
               }}
             >
               {item.videoUrl ? (
-                <PortfolioVideo item={item} index={idx} />
+                <PortfolioVideo item={item} />
               ) : (
                 <>
                   <img
